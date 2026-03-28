@@ -1,4 +1,5 @@
 import socket  # noqa: F401
+import threading
 
 
 class Request:
@@ -28,24 +29,27 @@ class Request:
             response = "HTTP/1.1 404 Not Found\r\n\r\n"
         return response.encode()
 
+def handle_client(conn, address):
+    with conn:
+        print(f"accepted connection from {address}")
+        data = conn.recv(1024)
+        print(f"data: {data}")
+        
+        request = Request(data)
+        print(f"path: {request.path}")
+        print(f"host: {request.headers.get('Host')}")
+        print(f"user-agent: {request.headers.get('User-Agent')}")
+        
+        response = request.handle_request()
+        conn.sendall(response)
 
 def main():
 
     with socket.create_server(("localhost", 4221), reuse_port=True) as server_socket:
         while True:
             conn, address = server_socket.accept()  # wait for client
-            with conn:
-                print(f"accepted connection from {address}")
-                data = conn.recv(1024)
-                print(f"data: {data}")
-                
-                request = Request(data)
-                print(f"path: {request.path}")
-                print(f"host: {request.headers.get('Host')}")
-                print(f"user-agent: {request.headers.get('User-Agent')}")
-                
-                response = request.handle_request()
-                conn.sendall(response)
+            thread = threading.Thread(target=handle_client, args=(conn, address))
+            thread.start()
 
 
 if __name__ == "__main__":
