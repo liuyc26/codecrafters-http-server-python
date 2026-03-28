@@ -14,7 +14,7 @@ class Request:
             key, value = line.split(": ", 1)
             self.headers[key] = value
     
-    def handle_request(self) -> str:
+    def handle_request(self) -> bytes:
         response = ''
         if self.path == '/':
             response = "HTTP/1.1 200 OK\r\n\r\n"
@@ -26,7 +26,7 @@ class Request:
             response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
         else:
             response = "HTTP/1.1 404 Not Found\r\n\r\n"
-        return response
+        return response.encode()
 
 
 def main():
@@ -44,7 +44,7 @@ def main():
                 print(f"host: {request.headers.get('Host')}")
                 print(f"user-agent: {request.headers.get('User-Agent')}")
                 
-                response = request.handle_request().encode()
+                response = request.handle_request()
                 conn.sendall(response)
 
 
