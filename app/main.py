@@ -12,6 +12,7 @@ def main():
     print(f"accepted connection from {address}")
     data = connection.recv(1024)
     connection.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    connection.close()
 
 
 if __name__ == "__main__":
