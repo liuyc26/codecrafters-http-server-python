@@ -1,4 +1,3 @@
-import os
 import socket  # noqa: F401
 import sys
 import threading
@@ -16,25 +15,36 @@ class Request:
                 break
             key, value = line.split(": ", 1)
             self.headers[key] = value
+        
+        separator = "\r\n\r\n"
+        body_start = data.find(separator)
+        self.body = data[body_start + len(separator):] if body_start != -1 else ""
     
     def handle_request(self) -> bytes:
         response = ''
-        if self.path == '/':
-            response = "HTTP/1.1 200 OK\r\n\r\n"
-        elif self.path.startswith('/echo/') and len(self.path.split('/')) == 3:
-            content = self.path.split('/')[-1]
-            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(content)}\r\n\r\n{content}"
-        elif self.path == '/user-agent':
-            user_agent = self.headers.get("User-Agent", "")
-            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
-        elif self.path.startswith('/files/') and len(self.path.split('/')) == 3:
-            filename = self.path.split('/')[-1]
-            response = self._handle_file(filename)
-        else:
-            response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        
+        if self.method == 'GET':
+            if self.path == '/':
+                response = "HTTP/1.1 200 OK\r\n\r\n"
+            elif self.path.startswith('/echo/') and len(self.path.split('/')) == 3:
+                content = self.path.split('/')[-1]
+                response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(content)}\r\n\r\n{content}"
+            elif self.path == '/user-agent':
+                user_agent = self.headers.get("User-Agent", "")
+                response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
+            elif self.path.startswith('/files/') and len(self.path.split('/')) == 3:
+                filename = self.path.split('/')[-1]
+                response = self._read_file(filename)
+            else:
+                response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        elif self.method == 'POST':
+            if self.path.startswith('/files/') and len(self.path.split('/')) == 3:
+                filename = self.path.split('/')[-1]
+                response = self._create_file(filename)
+
         return response.encode()
 
-    def _handle_file(self, filename: str) -> str:
+    def _read_file(self, filename: str) -> str:
         filepath = f"{sys.argv[2]}/{filename}"
         try:
             with open(filepath, "rb") as file:
@@ -49,6 +59,12 @@ class Request:
         )
         return headers + content.decode()
 
+    def _create_file(self, filename: str) -> str:
+        filepath = f"{sys.argv[2]}/{filename}"
+        with open(filepath, "wb") as file:
+            file.write(self.body.encode())
+        return "HTTP/1.1 201 Created\r\n\r\n"
+
 
 def handle_client(conn, address):
     with conn:
@@ -57,9 +73,10 @@ def handle_client(conn, address):
         print(f"data: {data}")
         
         request = Request(data)
+        print(f"method: {request.method}")
         print(f"path: {request.path}")
-        print(f"host: {request.headers.get('Host')}")
-        print(f"user-agent: {request.headers.get('User-Agent')}")
+        print(f"headers: {request.headers}")
+        print(f"body: {request.body}")
         
         response = request.handle_request()
         conn.sendall(response)
