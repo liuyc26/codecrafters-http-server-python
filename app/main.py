@@ -1,5 +1,6 @@
 import os
 import socket  # noqa: F401
+import sys
 import threading
 
 
@@ -34,8 +35,9 @@ class Request:
         return response.encode()
 
     def _handle_file(self, filename: str) -> str:
+        filepath = f"{sys.argv[2]}/{filename}"
         try:
-            with open(f"{os.getcwd()}/{filename}", "rb") as file:
+            with open(filepath, "rb") as file:
                 content = file.read()
         except FileNotFoundError:
             return "HTTP/1.1 404 Not Found\r\n\r\n"
