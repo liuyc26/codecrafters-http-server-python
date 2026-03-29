@@ -25,9 +25,27 @@ class Request:
         elif self.path == '/user-agent':
             user_agent = self.headers.get("User-Agent", "")
             response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
+        elif self.path.startswith('/files/') and len(self.path.split('/')) == 3:
+            filename = self.path.split('/')[-1]
+            response = self._handle_file(filename)
         else:
             response = "HTTP/1.1 404 Not Found\r\n\r\n"
         return response.encode()
+
+    def _handle_file(self, filename: str) -> str:
+        try:
+            with open(filename, "rb") as file:
+                content = file.read()
+        except FileNotFoundError:
+            return "HTTP/1.1 404 Not Found\r\n\r\n"
+
+        headers = (
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: application/octet-stream\r\n"
+            f"Content-Length: {len(content)}\r\n\r\n"
+        )
+        return headers + content.decode()
+
 
 def handle_client(conn, address):
     with conn:
@@ -43,8 +61,8 @@ def handle_client(conn, address):
         response = request.handle_request()
         conn.sendall(response)
 
-def main():
 
+def main():
     with socket.create_server(("localhost", 4221), reuse_port=True) as server_socket:
         while True:
             conn, address = server_socket.accept()  # wait for client
