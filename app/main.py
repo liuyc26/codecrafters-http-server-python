@@ -16,54 +16,68 @@ class Request:
             key, value = line.split(": ", 1)
             self.headers[key] = value
         
-        separator = "\r\n\r\n"
-        body_start = data.find(separator)
-        self.body = data[body_start + len(separator):] if body_start != -1 else ""
+        self.separator = "\r\n\r\n"
+        body_start = data.find(self.separator)
+        self.body = data[body_start + len(self.separator):] if body_start != -1 else ""
     
     def handle_request(self) -> bytes:
-        response = ''
+        response_status = "HTTP/1.1 404 Not Found"
+        response_headers = {}
+        response_body = ""
         
         if self.method == 'GET':
             if self.path == '/':
-                response = "HTTP/1.1 200 OK\r\n\r\n"
+                response_status = "HTTP/1.1 200 OK"
             elif self.path.startswith('/echo/') and len(self.path.split('/')) == 3:
-                content = self.path.split('/')[-1]
-                response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(content)}\r\n\r\n{content}"
+                response_status = "HTTP/1.1 200 OK"
+                response_body = self.path.split('/')[-1]
+                response_headers["Content-Type"] = "text/plain"
             elif self.path == '/user-agent':
-                user_agent = self.headers.get("User-Agent", "")
-                response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
+                response_status = "HTTP/1.1 200 OK"
+                response_body = self.headers.get("User-Agent", "")
+                response_headers["Content-Type"] = "text/plain"
             elif self.path.startswith('/files/') and len(self.path.split('/')) == 3:
                 filename = self.path.split('/')[-1]
-                response = self._read_file(filename)
-            else:
-                response = "HTTP/1.1 404 Not Found\r\n\r\n"
+                response_status, response_headers, response_body = self._read_file(filename)
         elif self.method == 'POST':
             if self.path.startswith('/files/') and len(self.path.split('/')) == 3:
                 filename = self.path.split('/')[-1]
-                response = self._create_file(filename)
+                response_status, response_headers, response_body = self._create_file(filename)
+        
+        # Compression headers
+        if self.headers.get("Accept-Encoding"):
+            response_headers["Content-Encoding"] = self.headers.get("Accept-Encoding")
 
+        return self._build_response(response_status, response_headers, response_body)
+
+    def _build_response(self, status: str, headers: dict[str, str], body: str = "") -> bytes:
+        response_headers = headers.copy()
+        if body:
+            response_headers["Content-Length"] = str(len(body))
+
+        header_lines = "".join(
+            f"{key}: {value}\r\n" for key, value in response_headers.items()
+        )
+        response = f"{status}\r\n{header_lines}\r\n{body}"
         return response.encode()
 
-    def _read_file(self, filename: str) -> str:
+    def _read_file(self, filename: str) -> tuple[str, dict[str, str], str]:
         filepath = f"{sys.argv[2]}/{filename}"
         try:
             with open(filepath, "rb") as file:
                 content = file.read()
         except FileNotFoundError:
-            return "HTTP/1.1 404 Not Found\r\n\r\n"
+            return "HTTP/1.1 404 Not Found", {}, ""
 
-        headers = (
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: application/octet-stream\r\n"
-            f"Content-Length: {len(content)}\r\n\r\n"
-        )
-        return headers + content.decode()
+        return "HTTP/1.1 200 OK", {
+            "Content-Type": "application/octet-stream",
+        }, content.decode()
 
-    def _create_file(self, filename: str) -> str:
+    def _create_file(self, filename: str) -> tuple[str, dict[str, str], str]:
         filepath = f"{sys.argv[2]}/{filename}"
         with open(filepath, "wb") as file:
             file.write(self.body.encode())
-        return "HTTP/1.1 201 Created\r\n\r\n"
+        return "HTTP/1.1 201 Created", {}, ""
 
 
 def handle_client(conn, address):
