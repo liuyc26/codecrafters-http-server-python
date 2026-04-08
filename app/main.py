@@ -45,7 +45,7 @@ class Request:
                 response_status, response_headers, response_body = self._create_file(filename)
         
         # Compression headers
-        if self.headers.get("Accept-Encoding"):
+        if self.headers.get("Accept-Encoding") in ['gzip']:
             response_headers["Content-Encoding"] = self.headers.get("Accept-Encoding")
 
         return self._build_response(response_status, response_headers, response_body)
