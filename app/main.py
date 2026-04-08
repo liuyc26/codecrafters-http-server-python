@@ -8,7 +8,10 @@ class Request:
     def __init__(self, data: bytes):
         data = data.decode()
         lines = data.split("\r\n")
-        self.method, self.path, self.http_version = lines[0].split(" ")
+        request_line = lines[0].split(" ")
+        if len(request_line) != 3:
+            raise ValueError(f"Invalid HTTP request line: {lines[0]!r}")
+        self.method, self.path, self.http_version = request_line
         self.headers = {}
 
         for line in lines[1:]:
@@ -89,17 +92,20 @@ class Request:
 def handle_client(conn, address):
     with conn:
         print(f"accepted connection from {address}")
-        data = conn.recv(1024)
-        print(f"data: {data}")
-        
-        request = Request(data)
-        print(f"method: {request.method}")
-        print(f"path: {request.path}")
-        print(f"headers: {request.headers}")
-        print(f"body: {request.body}")
-        
-        response = request.handle_request()
-        conn.sendall(response)
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+            print(f"data: {data}")
+            
+            request = Request(data)
+            print(f"method: {request.method}")
+            print(f"path: {request.path}")
+            print(f"headers: {request.headers}")
+            print(f"body: {request.body}")
+            
+            response = request.handle_request()
+            conn.sendall(response)
 
 
 def main():
