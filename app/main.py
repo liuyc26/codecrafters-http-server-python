@@ -1,3 +1,4 @@
+import gzip
 import socket  # noqa: F401
 import sys
 import threading
@@ -50,6 +51,7 @@ class Request:
             for scheme in compression_schemes:
                 if scheme in ['gzip']:
                     response_headers["Content-Encoding"] = 'gzip'
+                    response_body = gzip.compress(response_body.encode())
 
         return self._build_response(response_status, response_headers, response_body)
 
