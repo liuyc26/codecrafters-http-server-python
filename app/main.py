@@ -49,7 +49,7 @@ class Request:
             compression_schemes = self.headers.get("Accept-Encoding").split(', ')
             for scheme in compression_schemes:
                 if scheme in ['gzip']:
-                    response_headers["Content-Encoding"] = self.headers.get("Accept-Encoding")
+                    response_headers["Content-Encoding"] = 'gzip'
 
         return self._build_response(response_status, response_headers, response_body)
 
