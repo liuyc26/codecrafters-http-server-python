@@ -24,7 +24,7 @@ class Request:
     def handle_request(self) -> bytes:
         response_status = "HTTP/1.1 404 Not Found"
         response_headers = {}
-        response_body = ""
+        response_body: str | bytes = ""
         
         if self.method == 'GET':
             if self.path == '/':
@@ -52,19 +52,20 @@ class Request:
                 if scheme in ['gzip']:
                     response_headers["Content-Encoding"] = 'gzip'
                     response_body = gzip.compress(response_body.encode())
+                    break
 
         return self._build_response(response_status, response_headers, response_body)
 
-    def _build_response(self, status: str, headers: dict[str, str], body: str = "") -> bytes:
+    def _build_response(self, status: str, headers: dict[str, str], body: str | bytes = "") -> bytes:
         response_headers = headers.copy()
-        if body:
-            response_headers["Content-Length"] = str(len(body))
+        body_bytes = body.encode() if isinstance(body, str) else body
+        response_headers["Content-Length"] = str(len(body_bytes))
 
         header_lines = "".join(
             f"{key}: {value}\r\n" for key, value in response_headers.items()
         )
-        response = f"{status}\r\n{header_lines}\r\n{body}"
-        return response.encode()
+        response = f"{status}\r\n{header_lines}\r\n".encode()
+        return response + body_bytes
 
     def _read_file(self, filename: str) -> tuple[str, dict[str, str], str]:
         filepath = f"{sys.argv[2]}/{filename}"
