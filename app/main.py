@@ -56,6 +56,10 @@ class Request:
                     response_headers["Content-Encoding"] = 'gzip'
                     response_body = gzip.compress(response_body.encode())
                     break
+        
+        # Connection closure
+        if self.headers.get("Connection") == 'close':
+            response_headers["Connection"] = 'close'
 
         return self._build_response(response_status, response_headers, response_body)
 
@@ -106,6 +110,9 @@ def handle_client(conn, address):
             
             response = request.handle_request()
             conn.sendall(response)
+            
+            if request.headers.get("Connection") == 'close':
+                break
 
 
 def main():
